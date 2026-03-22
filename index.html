@@ -7,10 +7,10 @@
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
   *{margin:0;padding:0;box-sizing:border-box}
-  html,body{width:100%;height:100%;overflow:hidden}
-  body{background:#0a0a12;display:flex;justify-content:center;align-items:center;font-family:'Press Start 2P',monospace}
-  #W{position:relative;image-rendering:pixelated;width:100%;height:100%;display:flex;justify-content:center;align-items:center}
-  canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges;border:none}
+  html,body{width:100%;height:100%;overflow:hidden;margin:0;padding:0}
+  body{background:#0a0a12;font-family:'Press Start 2P',monospace;overflow:hidden}
+  #W{position:fixed;top:0;left:0;width:100vw;height:100vh;overflow:hidden}
+  canvas{position:absolute;top:0;left:0;width:100vw!important;height:100vh!important;image-rendering:pixelated;image-rendering:crisp-edges;border:none}
   #O{position:absolute;top:0;left:0;width:100%;height:100%;display:flex;flex-direction:column;justify-content:center;align-items:center;
     pointer-events:none;z-index:10;background:rgba(5,5,15,0.92);opacity:0;transition:opacity 0.3s;
     padding:clamp(8px,2vw,20px);overflow:hidden}
@@ -81,16 +81,10 @@ const GW=720,GH=420,GRAVITY=1000,GROUND=GH-52;
 // Visual size fills the entire viewport with correct aspect ratio
 function resizeCanvas(){
   const dpr=window.devicePixelRatio||1;
-  const vw=window.innerWidth, vh=window.innerHeight;
-  // Cover: fill entire viewport, crop edges if needed
-  canvas.style.width=vw+'px';
-  canvas.style.height=vh+'px';
-  const bufW=Math.round(vw*dpr);
-  const bufH=Math.round(vh*dpr);
-  if(canvas.width!==bufW||canvas.height!==bufH){
-    canvas.width=bufW;canvas.height=bufH;
-  }
-  ctx.setTransform(bufW/GW,0,0,bufH/GH,0,0);
+  const bw=Math.round(window.innerWidth*dpr);
+  const bh=Math.round(window.innerHeight*dpr);
+  if(canvas.width!==bw||canvas.height!==bh){canvas.width=bw;canvas.height=bh}
+  ctx.setTransform(bw/GW,0,0,bh/GH,0,0);
 }
 resizeCanvas();
 window.addEventListener('resize',resizeCanvas);
