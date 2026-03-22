@@ -79,13 +79,14 @@
       <div id="joystickBase"></div>
       <div id="joystickKnob"></div>
     </div>
-    <!-- Action buttons (right side) -->
-    <div class="t-btn t-act" id="tShoot" style="right:3%;bottom:12%">🔫</div>
-    <div class="t-btn t-act" id="tJump" style="right:16%;bottom:30%">⬆</div>
-    <div class="t-btn t-sm" id="tDash" style="right:18%;bottom:8%">DSH</div>
-    <div class="t-btn t-sm" id="tShield" style="right:3%;bottom:35%">SHD</div>
-    <div class="t-btn t-sm" id="tSuper" style="right:30%;bottom:18%">SUP</div>
+    <!-- Action buttons (right side) — no jump, joystick handles it -->
+    <div class="t-btn t-act" id="tShoot" style="right:3%;bottom:10%">🔫</div>
+    <div class="t-btn t-sm" id="tDash" style="right:16%;bottom:6%">DSH</div>
+    <div class="t-btn t-sm" id="tShield" style="right:16%;bottom:28%">SHD</div>
+    <div class="t-btn t-sm" id="tSuper" style="right:3%;bottom:32%">SUP</div>
     <div class="t-btn" id="tPause" style="right:2%;top:2%;width:10vw;height:10vw;max-width:40px;max-height:40px;font-size:clamp(8px,2vw,14px);border-radius:8px">⏸</div>
+    <!-- Button size toggle -->
+    <div class="t-btn" id="tSize" style="left:2%;top:2%;width:10vw;height:10vw;max-width:40px;max-height:40px;font-size:clamp(8px,2vw,14px);border-radius:8px">⚙</div>
   </div>
 </div>
 <script>
@@ -848,10 +849,33 @@ requestAnimationFrame(loop);
   touchEl.classList.add('show');
   touchEl.style.display='none';
 
-  var btnMap={tJump:'KeyW',tShoot:'Space',tDash:'KeyF',tShield:'KeyL',tSuper:'KeyE'};
+  var btnMap={tShoot:'Space',tDash:'KeyF',tShield:'KeyL',tSuper:'KeyE'};
   var activeButtons={};
   function pressKey(code){if(!K[code])JP[code]=true;K[code]=true}
   function releaseKey(code){K[code]=false}
+
+  // ── BUTTON SIZE SETTINGS ──
+  var sizes=['small','medium','large'];
+  var sizeIdx=1; // default medium
+  try{var ss=localStorage.getItem('dili_btnsize');if(ss)sizeIdx=parseInt(ss)||1}catch(e){}
+  var sizeScales=[0.7,1.0,1.4];
+  function applySize(){
+    var s=sizeScales[sizeIdx];
+    var btns=touchEl.querySelectorAll('.t-act,.t-sm');
+    for(var i=0;i<btns.length;i++){btns[i].style.transform='scale('+s+')'}
+    // Joystick too
+    var ja=document.getElementById('joystickArea');
+    if(ja)ja.style.transform='scale('+s+')';
+    try{localStorage.setItem('dili_btnsize',''+sizeIdx)}catch(e){}
+  }
+  applySize();
+  var sizeBtn=document.getElementById('tSize');
+  if(sizeBtn)sizeBtn.addEventListener('touchstart',function(e){
+    e.preventDefault();e.stopPropagation();
+    sizeIdx=(sizeIdx+1)%sizes.length;applySize();
+    sizeBtn.textContent=sizes[sizeIdx][0].toUpperCase();
+    setTimeout(function(){sizeBtn.textContent='⚙'},800);
+  },{passive:false});
 
   // ── JOYSTICK ──
   var joyArea=document.getElementById('joystickArea');
@@ -871,14 +895,14 @@ requestAnimationFrame(loop);
     var nL=nx<-DEAD,nR=nx>DEAD,nU=ny<-DEAD,nD=ny>DEAD;
     if(nL!==joyDirs.left){if(nL)pressKey('ArrowLeft');else releaseKey('ArrowLeft')}
     if(nR!==joyDirs.right){if(nR)pressKey('ArrowRight');else releaseKey('ArrowRight')}
-    if(nU!==joyDirs.up){if(nU)pressKey('ArrowUp');else releaseKey('ArrowUp')}
+    if(nU!==joyDirs.up){if(nU){pressKey('ArrowUp');pressKey('KeyW')}else{releaseKey('ArrowUp');releaseKey('KeyW')}}
     if(nD!==joyDirs.down){if(nD)pressKey('ArrowDown');else releaseKey('ArrowDown')}
     joyDirs={left:nL,right:nR,up:nU,down:nD};
   }
   function resetJoy(){
     joyKnob.style.left='50%';joyKnob.style.top='50%';
     if(joyDirs.left)releaseKey('ArrowLeft');if(joyDirs.right)releaseKey('ArrowRight');
-    if(joyDirs.up)releaseKey('ArrowUp');if(joyDirs.down)releaseKey('ArrowDown');
+    if(joyDirs.up){releaseKey('ArrowUp');releaseKey('KeyW')}if(joyDirs.down)releaseKey('ArrowDown');
     joyDirs={left:false,right:false,up:false,down:false};joyTouch=null;
   }
 
