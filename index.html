@@ -40,7 +40,7 @@
   .kb-btn.listening{border-color:#ffaa00;color:#ffcc00;animation:pulse .5s infinite alternate}
   @keyframes pulse{from{box-shadow:0 0 4px #ffaa00}to{box-shadow:0 0 12px #ffaa00}}
   /* ═══ MOBILE TOUCH CONTROLS ═══ */
-  #touch{display:none;position:absolute;bottom:0;left:0;width:100%;z-index:5;pointer-events:none}
+  #touch{display:none;position:absolute;bottom:0;left:0;width:100%;height:100%;z-index:5;pointer-events:none}
   #touch.show{display:block}
   .t-btn{position:absolute;pointer-events:all;border-radius:50%;border:2px solid rgba(100,150,255,0.4);
     background:rgba(20,20,60,0.5);color:rgba(150,180,255,0.7);display:flex;align-items:center;justify-content:center;
@@ -82,22 +82,14 @@ const GW=720,GH=420,GRAVITY=1000,GROUND=GH-52;
 function resizeCanvas(){
   const dpr=window.devicePixelRatio||1;
   const vw=window.innerWidth, vh=window.innerHeight;
-  // Fit: scale to fill viewport while keeping aspect ratio (cover mode)
-  const scaleX=vw/GW, scaleY=vh/GH;
-  const scale=Math.min(scaleX,scaleY); // fit inside (no crop)
-  const displayW=Math.round(GW*scale);
-  const displayH=Math.round(GH*scale);
-  // CSS size = display size
-  canvas.style.width=displayW+'px';
-  canvas.style.height=displayH+'px';
-  // Pixel buffer = display * DPR for sharp rendering on HiDPI
-  const bufW=Math.round(displayW*dpr);
-  const bufH=Math.round(displayH*dpr);
+  // Cover: fill entire viewport, crop edges if needed
+  canvas.style.width=vw+'px';
+  canvas.style.height=vh+'px';
+  const bufW=Math.round(vw*dpr);
+  const bufH=Math.round(vh*dpr);
   if(canvas.width!==bufW||canvas.height!==bufH){
-    canvas.width=bufW;
-    canvas.height=bufH;
+    canvas.width=bufW;canvas.height=bufH;
   }
-  // Scale context so game logic still uses 720x420 coordinates
   ctx.setTransform(bufW/GW,0,0,bufH/GH,0,0);
 }
 resizeCanvas();
@@ -388,7 +380,7 @@ function calcGrade(){
   pts+=p*500; // gain for parries
   pts+=score.superUsed*200; // bonus for EX use
   pts-=Math.max(0,t-30)*20; // penalty for slow (>30s)
-  pts=Math.max(0,pts);
+  pts=Math.max(0,Math.round(pts));
 
   let grade='D';
   if(h===0&&t<45) grade='S';
@@ -602,7 +594,7 @@ function drwHUD(){
   // Live timer + hits (top-right)
   ctx.font='7px "Press Start 2P"';ctx.textAlign='right';
   ctx.fillStyle='#556';
-  const mins=Math.floor(score.time/60);const secs=(score.time%60).toFixed(1);
+  const mins=Math.floor(score.time/60);const secs=Math.round(score.time%60);
   ctx.fillText((mins>0?mins+'m ':'')+secs+'s',GW-12,18);
   ctx.fillText('Hits:'+score.hits+' Sh:'+score.shields,GW-12,30);
 }
@@ -672,7 +664,9 @@ function resetResults(){defeated=[false,false,false];bestGrades=['','',''];bestS
 window.resetResults=resetResults;
 loadSave();
 
-function showScr(t){OV.classList.add('active');
+function hideMobileControls(){var t=document.getElementById('touch');if(t)t.style.display='none'}
+function showMobileControls(){var t=document.getElementById('touch');if(t&&t.classList.contains('show'))t.style.display='block'}
+function showScr(t){OV.classList.add('active');hideMobileControls();
   // ── TITLE SCREEN ──
   if(t==='menu'){
     OV.innerHTML=`
@@ -723,7 +717,7 @@ function showScr(t){OV.classList.add('active');
     OV.innerHTML=h}
   else if(t==='over'){
     const g=calcGrade();
-    const tm=score.time;const mins=Math.floor(tm/60);const secs=(tm%60).toFixed(1);
+    const tm=score.time;const mins=Math.floor(tm/60);const secs=Math.round(tm%60);
     const timeStr=mins>0?mins+'m '+secs+'s':secs+'s';
     OV.innerHTML=`<h1 style="color:#ff4444">💀 GAME OVER</h1>
     <h2>Dili has fallen...</h2>
@@ -742,7 +736,7 @@ function showScr(t){OV.classList.add('active');
     </div>`}
   else if(t==='win'){
     const g=calcGrade();
-    const tm=score.time;const mins=Math.floor(tm/60);const secs=(tm%60).toFixed(1);
+    const tm=score.time;const mins=Math.floor(tm/60);const secs=Math.round(tm%60);
     const timeStr=mins>0?mins+'m '+secs+'s':secs+'s';
     OV.innerHTML=`<h1 style="color:#ffaa00">🏆 VICTORY!</h1>
     <h2>${BD[BI].name} defeated!</h2>
@@ -777,9 +771,9 @@ window.startRebind=function(action,btn){
 window.resetBinds=function(){
   binds=JSON.parse(JSON.stringify(defaultBinds));saveBinds();showScr('keys');
 };
-window.go=function(i){initA();OV.classList.remove('active');GS='play';resetP();resetScore();BI=i;AB=BD[i].mk();
+window.go=function(i){initA();OV.classList.remove('active');GS='play';showMobileControls();resetP();resetScore();BI=i;AB=BD[i].mk();
   pB.length=0;bB.length=0;parts.length=0;telegraphs.length=0;startBGM(BD[i].bgm);sfx('sel');startIntro(BD[i].name)};
-window.unpause=function(){if(GS==='pause'){GS='play';OV.classList.remove('active');OV.innerHTML=''}};
+window.unpause=function(){if(GS==='pause'){GS='play';OV.classList.remove('active');OV.innerHTML='';showMobileControls()}};
 window.quitToMenu=function(){GS='menu';stopBGM();showScr('sel')};
 showScr('menu');
 
@@ -827,23 +821,21 @@ requestAnimationFrame(loop);
   var touchEl=document.getElementById('touch');
   if(!isMobile||!touchEl)return;
   touchEl.classList.add('show');
+  // Start hidden — showMobileControls() will reveal during gameplay
+  touchEl.style.display='none';
 
-  // Map touch buttons to fake keyboard keys
   var touchMap={
     tL:'ArrowLeft', tR:'ArrowRight', tU:'ArrowUp', tD:'ArrowDown',
     tJump:'KeyW', tShoot:'Space', tDash:'KeyF',
     tShield:'KeyL', tSuper:'KeyE'
   };
 
-  // Track active touches per button
   var activeButtons={};
-
   function pressKey(code){if(!K[code])JP[code]=true;K[code]=true}
   function releaseKey(code){K[code]=false}
 
   function handleTouch(e){
-    e.preventDefault();
-    // Collect all currently touched button IDs
+    e.preventDefault();e.stopPropagation();
     var nowTouched={};
     for(var i=0;i<e.touches.length;i++){
       var t=e.touches[i];
@@ -853,24 +845,15 @@ requestAnimationFrame(loop);
         el.classList.add('pressed');
       }
     }
-    // Press newly touched
-    for(var id in nowTouched){
-      if(!activeButtons[id]){pressKey(touchMap[id])}
-    }
-    // Release no longer touched
+    for(var id in nowTouched){if(!activeButtons[id])pressKey(touchMap[id])}
     for(var id in activeButtons){
-      if(!nowTouched[id]){
-        releaseKey(touchMap[id]);
-        var el=document.getElementById(id);
-        if(el)el.classList.remove('pressed');
-      }
-    }
+      if(!nowTouched[id]){releaseKey(touchMap[id]);
+        var el=document.getElementById(id);if(el)el.classList.remove('pressed')}}
     activeButtons=nowTouched;
   }
 
   function handleTouchEnd(e){
-    e.preventDefault();
-    // Rebuild active set from remaining touches
+    e.preventDefault();e.stopPropagation();
     var nowTouched={};
     for(var i=0;i<e.touches.length;i++){
       var t=e.touches[i];
@@ -878,31 +861,27 @@ requestAnimationFrame(loop);
       if(el&&el.id&&touchMap[el.id])nowTouched[el.id]=true;
     }
     for(var id in activeButtons){
-      if(!nowTouched[id]){
-        releaseKey(touchMap[id]);
-        var el=document.getElementById(id);
-        if(el)el.classList.remove('pressed');
-      }
-    }
+      if(!nowTouched[id]){releaseKey(touchMap[id]);
+        var el=document.getElementById(id);if(el)el.classList.remove('pressed')}}
     activeButtons=nowTouched;
   }
 
-  // Pause button special handling
   var pauseBtn=document.getElementById('tPause');
   if(pauseBtn){
     pauseBtn.addEventListener('touchstart',function(e){
       e.preventDefault();e.stopPropagation();
-      if(GS==='play'){GS='pause';OV.classList.add('active');
+      if(GS==='play'){GS='pause';OV.classList.add('active');hideMobileControls();
         OV.innerHTML='<h1>⏸ PAUSED</h1><button class="btn" onclick="unpause()">RESUME</button>'+
           '<button class="btn btn-sm" style="background:#333;border-color:#555;margin-top:8px" onclick="quitToMenu()">QUIT</button>'}
       else if(GS==='pause'){unpause()}
     },{passive:false});
   }
 
-  document.addEventListener('touchstart',handleTouch,{passive:false});
-  document.addEventListener('touchmove',handleTouch,{passive:false});
-  document.addEventListener('touchend',handleTouchEnd,{passive:false});
-  document.addEventListener('touchcancel',handleTouchEnd,{passive:false});
+  // Attach ONLY to touch controls div — not document — so overlay buttons work normally
+  touchEl.addEventListener('touchstart',handleTouch,{passive:false});
+  touchEl.addEventListener('touchmove',handleTouch,{passive:false});
+  touchEl.addEventListener('touchend',handleTouchEnd,{passive:false});
+  touchEl.addEventListener('touchcancel',handleTouchEnd,{passive:false});
 })();
 </script>
 </body>
