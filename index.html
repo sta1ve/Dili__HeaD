@@ -10,7 +10,7 @@
   html,body{width:100%;height:100%;overflow:hidden}
   body{background:#0a0a12;display:flex;justify-content:center;align-items:center;font-family:'Press Start 2P',monospace}
   #W{position:relative;image-rendering:pixelated;width:100%;height:100%;display:flex;justify-content:center;align-items:center}
-  canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges;border:2px solid #1a1a3a;box-shadow:0 0 30px rgba(50,50,180,0.2)}
+  canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges;border:none}
   #O{position:absolute;top:0;left:0;width:100%;height:100%;display:flex;flex-direction:column;justify-content:center;align-items:center;
     pointer-events:none;z-index:10;background:rgba(5,5,15,0.9);opacity:0;transition:opacity 0.3s;
     padding:12px;overflow:hidden}
@@ -48,12 +48,12 @@ const canvas=document.getElementById('C'),ctx=canvas.getContext('2d'),OV=documen
 const GW=720,GH=420,GRAVITY=1000,GROUND=GH-52;
 canvas.width=GW;canvas.height=GH;
 
-// Responsive scaling — fits any screen, no scrollbars
+// Responsive scaling — fills entire screen
 function resizeCanvas(){
-  const maxW=window.innerWidth-8, maxH=window.innerHeight-8;
-  const scale=Math.min(maxW/GW, maxH/GH);
-  canvas.style.width=Math.floor(GW*scale)+'px';
-  canvas.style.height=Math.floor(GH*scale)+'px';
+  const w=window.innerWidth, h=window.innerHeight;
+  const scale=Math.max(w/GW, h/GH);
+  canvas.style.width=Math.ceil(GW*scale)+'px';
+  canvas.style.height=Math.ceil(GH*scale)+'px';
 }
 resizeCanvas();
 window.addEventListener('resize',resizeCanvas);
@@ -631,12 +631,46 @@ loadSave();
 function showScr(t){OV.classList.add('active');
   // ── TITLE SCREEN ──
   if(t==='menu'){
-    OV.innerHTML=`<div style="font-size:clamp(24px,5vw,44px);margin-bottom:8px;animation:tB 2s ease-in-out infinite">💬</div>
+    OV.innerHTML=`<canvas id="titleLogo" width="320" height="80" style="image-rendering:pixelated;width:clamp(200px,50vw,400px);height:auto;margin-bottom:8px"></canvas>
       <div style="font-size:clamp(24px,6vw,44px);color:#4466ee;text-shadow:0 0 30px #4466ff,0 0 60px #2233aa55,0 4px 0 #111;letter-spacing:3px;margin-bottom:4px">DiliHead</div>
       <div style="font-size:clamp(8px,2vw,13px);color:#aa88ff;text-shadow:0 0 10px #8866ff;margin-bottom:6px;letter-spacing:5px">BOSS RUSH</div>
       <button class="btn" onclick="showScr('sel')" style="margin-top:16px">▶ PLAY</button>
-      <div style="font-size:clamp(6px,1vw,8px);color:#334;margin-top:16px">by <span style="color:#4466aa">sta1ve</span></div>
-      <style>@keyframes tB{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}</style>`;return}
+      <div style="font-size:clamp(6px,1vw,8px);color:#334;margin-top:16px">by <span style="color:#4466aa">sta1ve</span></div>`;
+    // Draw DLICOM pixel logo on title canvas
+    var tc=document.getElementById('titleLogo');
+    if(tc){var tx=tc.getContext('2d');
+      var t2=Date.now()*.001;
+      // Animated shimmer
+      function drawTitleLogo(){
+        if(!document.getElementById('titleLogo'))return;
+        var t2=Date.now()*.001;
+        tx.clearRect(0,0,320,80);
+        // Dili icon (diamond eye)
+        tx.save();tx.translate(30,40);tx.rotate(Math.PI/4+Math.sin(t2*2)*.1);
+        var g1=tx.createLinearGradient(-16,-16,16,16);
+        g1.addColorStop(0,'#4466ff');g1.addColorStop(.5,'#8844ff');g1.addColorStop(1,'#4488ff');
+        tx.fillStyle=g1;tx.fillRect(-16,-16,32,32);
+        tx.fillStyle='#fff';tx.fillRect(-8,-8,16,16);
+        tx.fillStyle='#111';tx.fillRect(-4,-4,8,8);
+        tx.restore();
+        // DLICOM text with color shimmer
+        tx.font='bold 42px "Press Start 2P"';tx.textAlign='left';tx.textBaseline='middle';
+        var grd=tx.createLinearGradient(60,0,320,0);
+        var hue1=(230+Math.sin(t2)*30);
+        var hue2=(270+Math.cos(t2*.7)*30);
+        grd.addColorStop(0,'hsl('+hue1+',80%,60%)');
+        grd.addColorStop(.5,'hsl('+hue2+',80%,70%)');
+        grd.addColorStop(1,'hsl('+hue1+',80%,55%)');
+        // Shadow
+        tx.fillStyle='#111';tx.fillText('DLICOM',67,44);
+        // Main
+        tx.fillStyle=grd;tx.fillText('DLICOM',65,42);
+        // Swoosh line
+        tx.strokeStyle='hsl('+hue2+',80%,60%)';tx.lineWidth=2;tx.globalAlpha=.6;
+        tx.beginPath();tx.moveTo(55,62);tx.lineTo(310,62);tx.stroke();tx.globalAlpha=1;
+        requestAnimationFrame(drawTitleLogo)}
+      drawTitleLogo()}
+    return}
   // ── BOSS SELECT ──
   if(t==='sel'){const allD=defeated.every(d=>d);
     let h=`<h1>⚔️ SELECT BOSS</h1>`;
