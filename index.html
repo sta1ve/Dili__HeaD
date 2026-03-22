@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>DiliHead — Boss Rush</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
@@ -39,10 +39,39 @@
   .kb-btn:hover{border-color:#4466ff;color:#fff}
   .kb-btn.listening{border-color:#ffaa00;color:#ffcc00;animation:pulse .5s infinite alternate}
   @keyframes pulse{from{box-shadow:0 0 4px #ffaa00}to{box-shadow:0 0 12px #ffaa00}}
+  /* ═══ MOBILE TOUCH CONTROLS ═══ */
+  #touch{display:none;position:absolute;bottom:0;left:0;width:100%;z-index:5;pointer-events:none}
+  #touch.show{display:block}
+  .t-btn{position:absolute;pointer-events:all;border-radius:50%;border:2px solid rgba(100,150,255,0.4);
+    background:rgba(20,20,60,0.5);color:rgba(150,180,255,0.7);display:flex;align-items:center;justify-content:center;
+    font-family:'Press Start 2P',monospace;font-size:10px;user-select:none;-webkit-user-select:none;touch-action:none}
+  .t-btn:active,.t-btn.pressed{background:rgba(60,80,180,0.6);border-color:rgba(100,150,255,0.8)}
+  .t-dpad{width:52px;height:52px}
+  .t-act{width:58px;height:58px}
+  .t-sm{width:44px;height:44px;font-size:7px}
 </style>
 </head>
 <body>
-<div id="W"><canvas id="C"></canvas><div id="O" class="active"></div></div>
+<div id="W">
+  <canvas id="C"></canvas>
+  <div id="O" class="active"></div>
+  <!-- Mobile touch controls — hidden on desktop -->
+  <div id="touch">
+    <!-- D-pad left side -->
+    <div class="t-btn t-dpad" id="tL" style="left:12px;bottom:60px">◀</div>
+    <div class="t-btn t-dpad" id="tR" style="left:78px;bottom:60px">▶</div>
+    <div class="t-btn t-dpad" id="tU" style="left:45px;bottom:120px">▲</div>
+    <div class="t-btn t-dpad" id="tD" style="left:45px;bottom:8px">▼</div>
+    <!-- Action buttons right side -->
+    <div class="t-btn t-act" id="tShoot" style="right:14px;bottom:55px">🔫</div>
+    <div class="t-btn t-act" id="tJump" style="right:80px;bottom:100px">⬆</div>
+    <div class="t-btn t-sm" id="tDash" style="right:85px;bottom:45px;font-size:6px">DSH</div>
+    <div class="t-btn t-sm" id="tShield" style="right:14px;bottom:125px;font-size:6px">SHD</div>
+    <div class="t-btn t-sm" id="tSuper" style="right:145px;bottom:75px;font-size:6px">SUP</div>
+    <!-- Pause -->
+    <div class="t-btn" id="tPause" style="right:8px;top:8px;width:36px;height:36px;font-size:8px;border-radius:6px">⏸</div>
+  </div>
+</div>
 <script>
 const canvas=document.getElementById('C'),ctx=canvas.getContext('2d'),OV=document.getElementById('O');
 const GW=720,GH=420,GRAVITY=1000,GROUND=GH-52;
@@ -790,6 +819,91 @@ function loop(ts){requestAnimationFrame(loop);
   if(GS==='win'&&AB&&Math.random()<.3)spark(AB.x+rng(0,AB.w),AB.y+rng(0,AB.h),Math.random()>.5?'#ffaa00':'#ff22ff',2,80,.4);
   clrJP()}
 requestAnimationFrame(loop);
+
+// ═══════════ MOBILE TOUCH CONTROLS ═══════════
+(function(){
+  // Detect touch device
+  var isMobile='ontouchstart' in window||navigator.maxTouchPoints>0;
+  var touchEl=document.getElementById('touch');
+  if(!isMobile||!touchEl)return;
+  touchEl.classList.add('show');
+
+  // Map touch buttons to fake keyboard keys
+  var touchMap={
+    tL:'ArrowLeft', tR:'ArrowRight', tU:'ArrowUp', tD:'ArrowDown',
+    tJump:'KeyW', tShoot:'Space', tDash:'KeyF',
+    tShield:'KeyL', tSuper:'KeyE'
+  };
+
+  // Track active touches per button
+  var activeButtons={};
+
+  function pressKey(code){if(!K[code])JP[code]=true;K[code]=true}
+  function releaseKey(code){K[code]=false}
+
+  function handleTouch(e){
+    e.preventDefault();
+    // Collect all currently touched button IDs
+    var nowTouched={};
+    for(var i=0;i<e.touches.length;i++){
+      var t=e.touches[i];
+      var el=document.elementFromPoint(t.clientX,t.clientY);
+      if(el&&el.id&&touchMap[el.id]){
+        nowTouched[el.id]=true;
+        el.classList.add('pressed');
+      }
+    }
+    // Press newly touched
+    for(var id in nowTouched){
+      if(!activeButtons[id]){pressKey(touchMap[id])}
+    }
+    // Release no longer touched
+    for(var id in activeButtons){
+      if(!nowTouched[id]){
+        releaseKey(touchMap[id]);
+        var el=document.getElementById(id);
+        if(el)el.classList.remove('pressed');
+      }
+    }
+    activeButtons=nowTouched;
+  }
+
+  function handleTouchEnd(e){
+    e.preventDefault();
+    // Rebuild active set from remaining touches
+    var nowTouched={};
+    for(var i=0;i<e.touches.length;i++){
+      var t=e.touches[i];
+      var el=document.elementFromPoint(t.clientX,t.clientY);
+      if(el&&el.id&&touchMap[el.id])nowTouched[el.id]=true;
+    }
+    for(var id in activeButtons){
+      if(!nowTouched[id]){
+        releaseKey(touchMap[id]);
+        var el=document.getElementById(id);
+        if(el)el.classList.remove('pressed');
+      }
+    }
+    activeButtons=nowTouched;
+  }
+
+  // Pause button special handling
+  var pauseBtn=document.getElementById('tPause');
+  if(pauseBtn){
+    pauseBtn.addEventListener('touchstart',function(e){
+      e.preventDefault();e.stopPropagation();
+      if(GS==='play'){GS='pause';OV.classList.add('active');
+        OV.innerHTML='<h1>⏸ PAUSED</h1><button class="btn" onclick="unpause()">RESUME</button>'+
+          '<button class="btn btn-sm" style="background:#333;border-color:#555;margin-top:8px" onclick="quitToMenu()">QUIT</button>'}
+      else if(GS==='pause'){unpause()}
+    },{passive:false});
+  }
+
+  document.addEventListener('touchstart',handleTouch,{passive:false});
+  document.addEventListener('touchmove',handleTouch,{passive:false});
+  document.addEventListener('touchend',handleTouchEnd,{passive:false});
+  document.addEventListener('touchcancel',handleTouchEnd,{passive:false});
+})();
 </script>
 </body>
 </html>
