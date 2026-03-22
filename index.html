@@ -53,6 +53,11 @@
   .t-dpad{width:15vw;height:15vw;max-width:64px;max-height:64px;font-size:clamp(12px,3vw,18px)}
   .t-act{width:17vw;height:17vw;max-width:72px;max-height:72px;font-size:clamp(10px,2.5vw,16px)}
   .t-sm{width:13vw;height:13vw;max-width:52px;max-height:52px;font-size:clamp(6px,1.5vw,9px)}
+  /* Joystick */
+  #joystickArea{position:absolute;left:2%;bottom:3%;width:clamp(100px,28vw,150px);height:clamp(100px,28vw,150px);pointer-events:all;touch-action:none}
+  #joystickBase{position:absolute;inset:0;border-radius:50%;background:rgba(15,15,40,0.4);border:2px solid rgba(100,150,255,0.25)}
+  #joystickKnob{position:absolute;width:40%;height:40%;border-radius:50%;background:rgba(80,120,255,0.5);border:2px solid rgba(130,170,255,0.5);
+    top:50%;left:50%;transform:translate(-50%,-50%);transition:none;pointer-events:none}
   /* Landscape hint for portrait mode */
   #rotateHint{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(5,5,15,0.95);
     z-index:100;color:#667;font-family:'Press Start 2P',monospace;font-size:clamp(8px,2vw,12px);
@@ -69,10 +74,12 @@
   <div id="rotateHint"><span>📱🔄</span>Rotate your device<br>to landscape mode</div>
   <!-- Mobile touch controls -->
   <div id="touch">
-    <div class="t-btn t-dpad" id="tL" style="left:2%;bottom:14%">◀</div>
-    <div class="t-btn t-dpad" id="tR" style="left:16%;bottom:14%">▶</div>
-    <div class="t-btn t-dpad" id="tU" style="left:9%;bottom:32%">▲</div>
-    <div class="t-btn t-dpad" id="tD" style="left:9%;bottom:2%">▼</div>
+    <!-- Joystick (left side) -->
+    <div id="joystickArea">
+      <div id="joystickBase"></div>
+      <div id="joystickKnob"></div>
+    </div>
+    <!-- Action buttons (right side) -->
     <div class="t-btn t-act" id="tShoot" style="right:3%;bottom:12%">🔫</div>
     <div class="t-btn t-act" id="tJump" style="right:16%;bottom:30%">⬆</div>
     <div class="t-btn t-sm" id="tDash" style="right:18%;bottom:8%">DSH</div>
@@ -835,72 +842,75 @@ requestAnimationFrame(loop);
 
 // ═══════════ MOBILE TOUCH CONTROLS ═══════════
 (function(){
-  // Detect touch device
   var isMobile='ontouchstart' in window||navigator.maxTouchPoints>0;
   var touchEl=document.getElementById('touch');
   if(!isMobile||!touchEl)return;
   touchEl.classList.add('show');
-  // Start hidden — showMobileControls() will reveal during gameplay
   touchEl.style.display='none';
 
-  var touchMap={
-    tL:'ArrowLeft', tR:'ArrowRight', tU:'ArrowUp', tD:'ArrowDown',
-    tJump:'KeyW', tShoot:'Space', tDash:'KeyF',
-    tShield:'KeyL', tSuper:'KeyE'
-  };
-
+  var btnMap={tJump:'KeyW',tShoot:'Space',tDash:'KeyF',tShield:'KeyL',tSuper:'KeyE'};
   var activeButtons={};
   function pressKey(code){if(!K[code])JP[code]=true;K[code]=true}
   function releaseKey(code){K[code]=false}
 
-  function handleTouch(e){
-    e.preventDefault();e.stopPropagation();
-    var nowTouched={};
-    for(var i=0;i<e.touches.length;i++){
-      var t=e.touches[i];
+  // ── JOYSTICK ──
+  var joyArea=document.getElementById('joystickArea');
+  var joyKnob=document.getElementById('joystickKnob');
+  var joyTouch=null;
+  var joyDirs={left:false,right:false,up:false,down:false};
+  var DEAD=0.25;
+
+  function updateJoy(tx,ty){
+    var r=joyArea.getBoundingClientRect();
+    var cx=r.left+r.width/2,cy=r.top+r.height/2,mr=r.width/2;
+    var dx=tx-cx,dy=ty-cy,d=Math.sqrt(dx*dx+dy*dy);
+    if(d>mr){dx=dx/d*mr;dy=dy/d*mr}
+    joyKnob.style.left=(50+dx/mr*30)+'%';
+    joyKnob.style.top=(50+dy/mr*30)+'%';
+    var nx=dx/mr,ny=dy/mr;
+    var nL=nx<-DEAD,nR=nx>DEAD,nU=ny<-DEAD,nD=ny>DEAD;
+    if(nL!==joyDirs.left){if(nL)pressKey('ArrowLeft');else releaseKey('ArrowLeft')}
+    if(nR!==joyDirs.right){if(nR)pressKey('ArrowRight');else releaseKey('ArrowRight')}
+    if(nU!==joyDirs.up){if(nU)pressKey('ArrowUp');else releaseKey('ArrowUp')}
+    if(nD!==joyDirs.down){if(nD)pressKey('ArrowDown');else releaseKey('ArrowDown')}
+    joyDirs={left:nL,right:nR,up:nU,down:nD};
+  }
+  function resetJoy(){
+    joyKnob.style.left='50%';joyKnob.style.top='50%';
+    if(joyDirs.left)releaseKey('ArrowLeft');if(joyDirs.right)releaseKey('ArrowRight');
+    if(joyDirs.up)releaseKey('ArrowUp');if(joyDirs.down)releaseKey('ArrowDown');
+    joyDirs={left:false,right:false,up:false,down:false};joyTouch=null;
+  }
+
+  function onStart(e){e.preventDefault();
+    for(var i=0;i<e.changedTouches.length;i++){var t=e.changedTouches[i];
+      var r=joyArea.getBoundingClientRect();
+      if(t.clientX>=r.left&&t.clientX<=r.right&&t.clientY>=r.top&&t.clientY<=r.bottom){
+        joyTouch=t.identifier;updateJoy(t.clientX,t.clientY);continue}
       var el=document.elementFromPoint(t.clientX,t.clientY);
-      if(el&&el.id&&touchMap[el.id]){
-        nowTouched[el.id]=true;
-        el.classList.add('pressed');
-      }
-    }
-    for(var id in nowTouched){if(!activeButtons[id])pressKey(touchMap[id])}
-    for(var id in activeButtons){
-      if(!nowTouched[id]){releaseKey(touchMap[id]);
-        var el=document.getElementById(id);if(el)el.classList.remove('pressed')}}
-    activeButtons=nowTouched;
-  }
+      if(el&&el.id&&btnMap[el.id]){activeButtons[el.id]=t.identifier;el.classList.add('pressed');pressKey(btnMap[el.id])}}}
 
-  function handleTouchEnd(e){
-    e.preventDefault();e.stopPropagation();
-    var nowTouched={};
-    for(var i=0;i<e.touches.length;i++){
-      var t=e.touches[i];
-      var el=document.elementFromPoint(t.clientX,t.clientY);
-      if(el&&el.id&&touchMap[el.id])nowTouched[el.id]=true;
-    }
-    for(var id in activeButtons){
-      if(!nowTouched[id]){releaseKey(touchMap[id]);
-        var el=document.getElementById(id);if(el)el.classList.remove('pressed')}}
-    activeButtons=nowTouched;
-  }
+  function onMove(e){e.preventDefault();
+    for(var i=0;i<e.changedTouches.length;i++){var t=e.changedTouches[i];
+      if(t.identifier===joyTouch)updateJoy(t.clientX,t.clientY)}}
 
-  var pauseBtn=document.getElementById('tPause');
-  if(pauseBtn){
-    pauseBtn.addEventListener('touchstart',function(e){
-      e.preventDefault();e.stopPropagation();
-      if(GS==='play'){GS='pause';OV.classList.add('active');hideMobileControls();
-        OV.innerHTML='<h1>⏸ PAUSED</h1><button class="btn" onclick="unpause()">RESUME</button>'+
-          '<button class="btn btn-sm" style="background:#333;border-color:#555;margin-top:8px" onclick="quitToMenu()">QUIT</button>'}
-      else if(GS==='pause'){unpause()}
-    },{passive:false});
-  }
+  function onEnd(e){e.preventDefault();
+    for(var i=0;i<e.changedTouches.length;i++){var t=e.changedTouches[i];
+      if(t.identifier===joyTouch){resetJoy();continue}
+      for(var id in activeButtons){if(activeButtons[id]===t.identifier){
+        releaseKey(btnMap[id]);var el=document.getElementById(id);if(el)el.classList.remove('pressed');delete activeButtons[id]}}}}
 
-  // Attach ONLY to touch controls div — not document — so overlay buttons work normally
-  touchEl.addEventListener('touchstart',handleTouch,{passive:false});
-  touchEl.addEventListener('touchmove',handleTouch,{passive:false});
-  touchEl.addEventListener('touchend',handleTouchEnd,{passive:false});
-  touchEl.addEventListener('touchcancel',handleTouchEnd,{passive:false});
+  var pb=document.getElementById('tPause');
+  if(pb)pb.addEventListener('touchstart',function(e){e.preventDefault();e.stopPropagation();
+    if(GS==='play'){GS='pause';OV.classList.add('active');hideMobileControls();
+      OV.innerHTML='<h1>⏸ PAUSED</h1><button class="btn" onclick="unpause()">RESUME</button>'+
+        '<button class="btn btn-sm" style="background:#333;border-color:#555;margin-top:8px" onclick="quitToMenu()">QUIT</button>'}
+    else if(GS==='pause'){unpause()}},{passive:false});
+
+  touchEl.addEventListener('touchstart',onStart,{passive:false});
+  touchEl.addEventListener('touchmove',onMove,{passive:false});
+  touchEl.addEventListener('touchend',onEnd,{passive:false});
+  touchEl.addEventListener('touchcancel',onEnd,{passive:false});
 })();
 </script>
 </body>
