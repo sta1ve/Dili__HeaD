@@ -327,21 +327,16 @@ function updP(dt){
         vx:Math.cos(sa)*400,vy:Math.sin(sa)*400,w:14,h:10,damage:3,ex:true})}
     spark(P.x+P.w/2,P.y+P.h/2,'#ffcc00',18,140,.5)}
 
-  // ── SHOOT (directional, crouch changes aim down) ──
-  if(kd('shoot')){P.ch+=dt;if(P.scd<=0&&P.ch<P.cht){
+  // ── SHOOT (hold to autofire, directional) ──
+  if(kd('shoot')){if(P.scd<=0){
     let ax=P.face,ay=0;
     if(kd('up'))ay=-1;
-    if(kd('down')){if(!P.gnd)ay=1; else ay=0;} // crouch doesn't aim down, stays forward
+    if(kd('down')){if(!P.gnd)ay=1; else ay=0;}
     if(kd('left'))ax=-1;if(kd('right'))ax=1;
     if(kd('up')&&!kd('left')&&!kd('right'))ax=0;
     if(kd('down')&&!kd('left')&&!kd('right')&&!P.gnd)ax=0;
     const al=Math.hypot(ax,ay)||1;ax/=al;ay/=al;
     pB.push({x:P.x+P.w/2+ax*10-4,y:P.y+P.h/2+ay*10-3,vx:420*ax,vy:420*ay,w:8,h:5,damage:1});P.scd=P.sr;sfx('shoot')}}
-  else{if(P.ch>=P.cht){let ax=P.face,ay=0;if(kd('up'))ay=-1;if(kd('down')&&!P.gnd)ay=1;
-    if(kd('left'))ax=-1;if(kd('right'))ax=1;if(kd('up')&&!kd('left')&&!kd('right'))ax=0;
-    const al=Math.hypot(ax,ay)||1;ax/=al;ay/=al;
-    pB.push({x:P.x+P.w/2+ax*10-8,y:P.y+P.h/2+ay*10-6,vx:360*ax,vy:360*ay,w:16,h:12,damage:4,charged:true});
-    sfx('charged');spark(P.x+P.w/2,P.y+P.h/2,'#00eeff',10,100,.3)}P.ch=0}
 
   // ── STATE ──
   P.st=P.dT>0?'dash':!P.gnd?'jump':P.crouching?'crouch':mx?'run':'idle';
